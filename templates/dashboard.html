@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏫</text></svg>">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#0a1f44">
+<meta charset="UTF-8">
+<title> 🏫 Painel • Senac 2026</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="logo"> 🏫 SENAC <span>2026</span></div>
+  <nav>
+  <button class="tab active" data-tab="alunos">👥 Alunos</button>
+  <button class="tab" data-tab="turmas">🏫 Turmas</button> <!-- NOVO -->
+  <button class="tab" data-tab="cadastro">➕ Cadastrar Aluno</button>
+  <button class="tab" data-tab="ocorrencias">📋 Ocorrências</button>
+  <a href="#" onclick="sairDoSistema(event)" class="sair">Sair</a>
+</nav>
+</header>
+
+<main>
+  <!-- ABA ALUNOS -->
+    
+  <section id="alunos" class="tab-content active">
+    <div class="filtros">
+      <input type="text" id="busca" placeholder="🔍 Buscar aluno por nome...">
+      <select id="filtroTurma">
+        <option value="">Todas as turmas</option>
+        <option value="1A">1A</option>
+        <option value="1B">1B</option>
+        <option value="2A">2A</option>
+        <option value="2B">2B</option>
+        <!-- O sistema preencherá dinamicamente se houver outras turmas -->
+        {% for t in turmas %}
+          {% if t not in ['1A', '1B', '2A', '2B'] %}
+            <option>{{ t }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+      <select id="filtroTurno">
+        <option value="">Todos os turnos</option>
+        <option value="Manhã">Matutino (Manhã)</option>
+        <option value="Tarde">Vespertino (Tarde)</option>
+      </select>
+    </div>
+    
+    <!-- Contêiner principal que vai alternar entre Turmas e Alunos -->
+    <div id="viewTurmas" class="grid-turmas">
+      <!-- Cards das turmas criados via JS -->
+    </div>
+    
+    <div id="viewAlunos" class="grid-alunos" style="display: none;">
+      <div class="header-turma">
+        <button onclick="voltarTurmas()" class="btn-voltar">← Voltar para Turmas</button>
+        <h3 id="tituloTurmaAtual"></h3>
+      </div>
+      <div id="listaAlunos"></div>
+    </div>
+
+        </section>
+          <!-- ABA TURMAS -->
+  <section id="turmas" class="tab-content">
+    <h2>Gerenciar Turmas</h2>
+    
+    <!-- Formulário de Nova Turma -->
+    <div class="form-card" style="margin-bottom: 30px; max-width: 100%; flex-direction: row; align-items: flex-end; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 150px;">
+        <label style="font-size: 13px; font-weight: bold; color: var(--marinho);">Nome da Turma</label>
+        <input type="text" id="novaTurmaNome" placeholder="Ex: 3A, 1C..." required>
+      </div>
+      <div style="flex: 1; min-width: 150px;">
+        <label style="font-size: 13px; font-weight: bold; color: var(--marinho);">Turno</label>
+        <select id="novaTurmaTurno" required>
+          <option value="Manhã">Manhã</option>
+          <option value="Tarde">Tarde</option>
+        </select>
+      </div>
+      <div style="flex: 1; min-width: 150px;">
+        <label style="font-size: 13px; font-weight: bold; color: var(--marinho);">Qtd. de Alunos</label>
+        <input type="number" id="novaTurmaQtd" placeholder="Ex: 40" min="1" required>
+      </div>
+      <button onclick="cadastrarNovaTurma()" style="width: auto; padding: 13px 25px;">➕ Criar Turma</button>
+    </div>
+
+    <!-- Lista de Turmas Cadastradas -->
+    <div id="listaTurmas" class="grid-turmas-admin"></div>
+  </section>
+
+  <!-- ABA CADASTRO -->
+  <section id="cadastro" class="tab-content">
+    <h2>Cadastrar Aluno</h2>
+    <form id="formAluno" onsubmit="return false;" enctype="multipart/form-data" class="form-card">
+      <input type="text" name="nome" placeholder="Nome completo" required>
+      <input type="text" name="turma" placeholder="Turma (ex: 1A, 2B)" required>
+      <select name="turno" required>
+        <option value="">Turno</option>
+        <option>Manhã</option><option>Tarde</option><option>
+      </select>
+      <label class="upload-label" style="display: flex; flex-direction: column; gap: 5px;">
+        <span>📷 Foto do aluno</span>
+        <input type="file" name="foto" id="inputFoto" accept="image/*">
+        <span id="nomeArquivo" style="font-size: 12px; color: #059669; font-weight: bold; margin-top: 5px;"></span>
+    </label>
+      <button type="submit">Cadastrar Aluno</button>
+    </form>
+  </section>
+
+    <!-- ABA OCORRÊNCIAS -->
+  <section id="ocorrencias" class="tab-content">
+    <h2>Registrar Ocorrência</h2>
+    <form id="formOcorrencia" class="form-card">
+      
+      <!-- 👇 COLE O AUTOCOMPLETE AQUI (substituindo o select antigo) 👇 -->
+      <div class="autocomplete-container">
+        <input type="text" id="buscaAlunoOcorrencia" placeholder="🔍 Digite o nome do aluno..." autocomplete="off" required>
+        <input type="hidden" id="selAluno" required> <!-- Guarda o ID do aluno escolhido -->
+        <div id="sugestoesAluno" class="autocomplete-lista"></div>
+      </div>
+      <!-- ☝️ FIM DO AUTOCOMPLETE ☝️ -->
+
+      <select id="selCodigo" required>
+          <option value="">Tipo de ocorrência...</option>
+          {% for k, v in ocorrencias.items() %}
+          <option value="{{ k }}">{{ k }} - {{ v['nome'] }}</option>
+          {% endfor %}
+      </select>
+      
+      <select id="selFunc" required>
+        <option value="">Quem registrou?</option>
+        {% for f in funcionarios %}<option>{{ f }}</option>{% endfor %}
+      </select>
+      
+      <textarea id="descricao" placeholder="Observações (opcional)"></textarea>
+      <button type="submit">Registrar</button>
+    </form>
+
+    <h3>Histórico</h3>
+    <div id="historico"></div>
+
+        <div class="legenda">
+      <h3>🔖 Legenda de Códigos</h3>
+      <div class="legenda-grid">
+        {% for item in legenda %}
+          <div class="legenda-item">
+            <span class="badge badge-{{ item.codigo|lower }}">{{ item.codigo }}</span> 
+            <span class="legenda-texto"><strong>{{ item.codigo }}</strong> - {{ item.nome }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- MODAL DO ALUNO -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="fecharModal()">&times;</span>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script id="dados-ocorrencias" type="application/json">
+  {{ ocorrencias | tojson }}
+</script>
+<script>
+  const OCORRENCIAS = JSON.parse(document.getElementById('dados-ocorrencias').textContent);
+</script>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

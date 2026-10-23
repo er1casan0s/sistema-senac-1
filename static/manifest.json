@@ -1,0 +1,15 @@
+{
+  "name": "Senac 2026 - Ocorrências",
+  "short_name": "Senac 2026",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a1f44",
+  "theme_color": "#0a1f44",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2602/2602202.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

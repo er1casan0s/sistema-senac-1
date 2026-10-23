@@ -6,7 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "senac2026_chave_secreta_super_segura"
-UPLOAD_FOLDER = "static/uploads"
+UPLOAD_FOLDER = '/home/sistemaalun0s/sistema-senac/static/uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
@@ -302,6 +302,5 @@ def deletar_turma(tid):
     conn.close()
     return jsonify({"ok": True})
 
-
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=True)

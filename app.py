@@ -3,6 +3,20 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3, os, uuid
 from datetime import datetime
+import os
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
+
+# Carrega o .env (caso rode localmente)
+load_dotenv()
+
+# Configura a chave
+FERNET_KEY = os.environ.get("FERNET_KEY")
+if not FERNET_KEY:
+    raise RuntimeError("A variável de ambiente FERNET_KEY não foi configurada!")
+
+fernet = Fernet(FERNET_KEY.encode())
+
 
 app = Flask(__name__)
 app.secret_key = "senac2026_chave_secreta_super_segura"
@@ -150,12 +164,12 @@ def api_alunos():
     turno = request.args.get("turno", "").strip()
 
     # Query que junta os dados do aluno com a contagem de ocorrências
-    sql = """
-    SELECT a.id, a.nome, a.turma, a.turno, a.foto, a.criado_em,
-           COUNT(o.id) as total_ocorrencias 
-    FROM alunos a
-    LEFT JOIN ocorrencias o ON a.id = o.aluno_id
-    WHERE 1=1
+     sql = """
+        SELECT a.id, a.nome, a.turma, a.turno, a.foto, a.criado_em,
+               COUNT(o.id) as total_ocorrencias 
+        FROM alunos a
+        LEFT JOIN ocorrencias o ON a.id = o.aluno_id
+        WHERE 1=1
     """
     params = []
     
@@ -217,21 +231,29 @@ def pagina_aluno(aid):
 def get_aluno(aid):
     conn = get_db()
     row = conn.execute("SELECT * FROM alunos WHERE id = ?", (aid,)).fetchone()
-    if not row:
-        conn.close()
-        return jsonify({"erro": "Aluno não encontrado"}), 404
-
-    # Registra o acesso a dados sensíveis (LGPD - prestação de contas)
-    conn.execute("""INSERT INTO logs_acesso (usuario_nome, aluno_id, acao, data, ip)
-                    VALUES (?,?,?,?,?)""",
-                 (session.get("nome_usuario", "desconhecido"),
-                  aid,
-                  "visualizou_ficha",
-                  datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                  request.remote_addr))
-    conn.commit()
     conn.close()
-    return jsonify(dict(row))
+    
+    if not row:
+        return jsonify({"erro": "Aluno não encontrado"}), 404
+        
+    # Transforma a linha do banco em um dicionário
+    aluno = dict(row)
+    
+    # Descriptografa os campos sensíveis
+    if aluno.get("especificidade"):
+        try:
+            aluno["especificidade"] = fernet.decrypt(aluno["especificidade"].encode()).decode()
+        except Exception:
+            pass # Se der erro (ex: dado antigo em texto puro), mantém como está
+            
+    if aluno.get("observacoes_medicas"):
+        try:
+            aluno["observacoes_medicas"] = fernet.decrypt(aluno["observacoes_medicas"].encode()).decode()
+        except Exception:
+            pass
+
+    # Retorna o aluno com os dados legíveis
+    return jsonify(aluno)
     
 
 
@@ -242,12 +264,18 @@ def atualizar_aluno(aid):
     conn = get_db()
     
     # Atualiza os dados
+      # Criptografa os campos sensíveis
+    especificidade_cripto = fernet.encrypt(data.get("especificidade", "").encode()).decode()
+    observacoes_cripto = fernet.encrypt(data.get("observacoes_medicas", "").encode()).decode()
+
     conn.execute("""UPDATE alunos SET 
         data_nascimento=?, nome_responsavel=?, telefone_responsavel=?, 
         especificidade=?, observacoes_medicas=? WHERE id=?""",
         (data.get("data_nascimento", ""), data.get("nome_responsavel", ""), 
-         data.get("telefone_responsavel", ""), data.get("especificidade", ""), 
-         data.get("observacoes_medicas", ""), aid))
+         data.get("telefone_responsavel", ""), 
+         especificidade_cripto, 
+         observacoes_cripto, 
+         aid))
     
     conn.commit()
     conn.close()

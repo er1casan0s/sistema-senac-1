@@ -78,6 +78,14 @@ def init_db():
         data TEXT NOT NULL,
         FOREIGN KEY(aluno_id) REFERENCES alunos(id)
     )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS logs_acesso (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_nome TEXT NOT NULL,
+    aluno_id INTEGER NOT NULL,
+    acao TEXT NOT NULL,
+    data TEXT NOT NULL,
+    ip TEXT
+    )""")
     
     conn.commit()
     conn.close()
@@ -94,7 +102,7 @@ def get_db():
 def proteger():
     rotas_livres = ["login", "static", "logout"]
     if request.endpoint and request.endpoint not in rotas_livres:
-        if not session.get("logado"):
+        if not session.get("usuario_id"):   # ajuste para a chave que você usa
             return redirect(url_for("login"))
 
 # ===== ROTAS =====
@@ -143,10 +151,11 @@ def api_alunos():
 
     # Query que junta os dados do aluno com a contagem de ocorrências
     sql = """
-        SELECT a.*, COUNT(o.id) as total_ocorrencias 
-        FROM alunos a
-        LEFT JOIN ocorrencias o ON a.id = o.aluno_id
-        WHERE 1=1
+    SELECT a.id, a.nome, a.turma, a.turno, a.foto, a.criado_em,
+           COUNT(o.id) as total_ocorrencias 
+    FROM alunos a
+    LEFT JOIN ocorrencias o ON a.id = o.aluno_id
+    WHERE 1=1
     """
     params = []
     
@@ -208,10 +217,24 @@ def pagina_aluno(aid):
 def get_aluno(aid):
     conn = get_db()
     row = conn.execute("SELECT * FROM alunos WHERE id = ?", (aid,)).fetchone()
-    conn.close()
     if not row:
+        conn.close()
         return jsonify({"erro": "Aluno não encontrado"}), 404
+
+    # Registra o acesso a dados sensíveis (LGPD - prestação de contas)
+    conn.execute("""INSERT INTO logs_acesso (usuario_nome, aluno_id, acao, data, ip)
+                    VALUES (?,?,?,?,?)""",
+                 (session.get("nome_usuario", "desconhecido"),
+                  aid,
+                  "visualizou_ficha",
+                  datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                  request.remote_addr))
+    conn.commit()
+    conn.close()
     return jsonify(dict(row))
+    
+
+
 
 @app.route("/api/alunos/<int:aid>", methods=["PUT"])
 def atualizar_aluno(aid):
@@ -235,16 +258,20 @@ def atualizar_aluno(aid):
 @app.route("/api/ocorrencias", methods=["POST"])
 def registrar_ocorrencia():
     data = request.get_json()
+    registrado_por = session.get("nome_usuario")
+    if not registrado_por:
+        return jsonify({"erro": "Sessão expirada"}), 401
+
     conn = get_db()
     conn.execute("""INSERT INTO ocorrencias 
         (aluno_id, codigo, descricao, registrado_por, data)
         VALUES (?,?,?,?,?)""",
         (data["aluno_id"], data["codigo"], data.get("descricao", ""),
-         data["registrado_por"], datetime.now().strftime("%d/%m/%Y %H:%M")))
+         registrado_por, datetime.now().strftime("%d/%m/%Y %H:%M")))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
-
+    
 @app.route("/api/ocorrencias/<int:aluno_id>")
 def listar_ocorrencias(aluno_id):
     conn = get_db()
@@ -301,6 +328,17 @@ def deletar_turma(tid):
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
+
+@app.route("/api/logs/<int:aluno_id>")
+def logs_aluno(aluno_id):
+    if session.get("perfil") != "coordenador":
+        return jsonify({"erro": "Sem permissão"}), 403
+    conn = get_db()
+    rows = conn.execute("""SELECT usuario_nome, acao, data, ip 
+                           FROM logs_acesso WHERE aluno_id = ? 
+                           ORDER BY id DESC""", (aluno_id,)).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
 
 
 if __name__ == "__main__":

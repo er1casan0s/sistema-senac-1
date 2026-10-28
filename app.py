@@ -17,7 +17,17 @@ if not FERNET_KEY:
 
 fernet = Fernet(FERNET_KEY.encode())
 
+app.config.update(
+    SESSION_COOKIE_SECURE=True,      # Só envia o cookie se a conexão for HTTPS (PythonAnywhere já tem)
+    SESSION_COOKIE_HTTPONLY=True,    # Impede que o JavaScript leia o cookie (proteção contra XSS)
+    SESSION_COOKIE_SAMESITE='Lax',   # Ajuda a bloquear ataques CSRF básicos
+    PERMANENT_SESSION_LIFETIME=3600  # A sessão expira em 1 hora (3600 segundos)
+)
 
+# Inicializa a proteção CSRF globalmente
+csrf = CSRFProtect(app)
+
+# INICIO 
 app = Flask(__name__)
 app.secret_key = "senac2026_chave_secreta_super_segura"
 UPLOAD_FOLDER = "static/uploads"

@@ -127,11 +127,11 @@
           <option value="{{ k }}">{{ k }} - {{ v['nome'] }}</option>
           {% endfor %}
       </select>
-      
-      <select id="selFunc" required>
-        <option value="">Quem registrou?</option>
-        {% for f in funcionarios %}<option>{{ f }}</option>{% endfor %}
-      </select>
+      <!-- AQUI FOI ONDE EU ALTEREI 28/10-->
+     <input type="text" id="registradoPor" 
+       value="{{ session['nome_usuario'] }}" 
+       readonly 
+       style="background:#f8fafc; color:#475569;">
       
       <textarea id="descricao" placeholder="Observações (opcional)"></textarea>
       <button type="submit">Registrar</button>
